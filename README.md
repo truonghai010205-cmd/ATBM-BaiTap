@@ -64,16 +64,87 @@ Cấu hình máy: Intel Core i5-12450HX (thế hệ 12), RAM khoảng 24 GB, ổ
 
 ## Bài 2: Mã hoá RSA, SHA-256 và chữ ký số
 
-[Sẽ bổ sung khi hoàn thành]
+Ứng dụng console C# (.NET) cài đặt mã hoá bất đối xứng RSA, băm SHA-256 và chữ ký số.
 
-## Cấu trúc thư mục
-```
-ATBM/
-  Bai1_AES/    # Mã nguồn bài 1
-  Bai2_RSA/    # Mã nguồn bài 2
-  images/      # Ảnh chụp màn hình
-  README.md
+### Chức năng
+
+| Mục menu | Chức năng | Yêu cầu của đề |
+|---|---|---|
+| 1 | Sinh cặp khoá RSA và xuất ra file PEM | 1, 2 |
+| 2 | Xem file PEM: cấu trúc ASN.1 và ý nghĩa từng byte | 3 |
+| 3 | Import PEM, hiển thị n, e (public) hoặc n, e, d, p, q, dP, dQ, qInv (private) | 4 |
+| 4 | Mã hoá dữ liệu tối đa 190 byte bằng public key, lưu Base64 | 5 |
+| 5 | Giải mã bằng private key, so sánh với dữ liệu gốc | 6 |
+| 6 | Đánh giá tốc độ khoá công khai và khoá bí mật | 7 |
+| 7 | SHA-256 và hiệu ứng thay đổi đầu vào | 8 |
+| 8 | Chữ ký số và đề xuất chữ ký khác nhau mỗi lần ký | 9 |
+
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/2fd98337-342c-481e-92ea-2bc018ef2da8" />
+
+### Thiết kế
+- Khoá RSA 2048 bit, public key xuất theo chuẩn SubjectPublicKeyInfo, private key theo PKCS#8.
+- Mã hoá dùng padding OAEP với SHA-256. Với khoá 2048 bit, dữ liệu tối đa là 256 − 2×32 − 2 = 190 byte, đủ để chứa khoá AES-256 (32 byte).
+- Chữ ký số là RSA áp dụng lên giá trị băm SHA-256 của dữ liệu bằng private key.
+
+### Cách chạy
+```bash
+cd Bai2_RSA
+dotnet run -c Release
 ```
 
-## Ghi chú
-Các file thử nghiệm dung lượng lớn (`*.bin`, `*.enc`, `*.dec`) và khoá (`*.key`, `*.pem`) không được đưa lên repo (xem `.gitignore`).
+### Cấu trúc file PEM
+(Chèn ảnh chụp kết quả mục 2 và giải thích ngắn.)
+
+![Xem public.pem](images/bai2-pem-public.png)
+![Xem private.pem](images/bai2-pem-private.png)
+
+- Dòng `-----BEGIN ... -----` và `-----END ... -----` đánh dấu loại dữ liệu; phần giữa là Base64 của cấu trúc nhị phân DER (ASN.1).
+- Tag `30` là SEQUENCE, `02` là INTEGER, `03` là BIT STRING, `04` là OCTET STRING, `05` là NULL, `06` là OID. Byte ngay sau tag là độ dài; nếu có dạng `82` thì hai byte tiếp theo mới là độ dài thực.
+- Public key gồm định danh thuật toán `rsaEncryption` (OID 1.2.840.113549.1.1.1) và BIT STRING chứa n và e. [Điền: e = ..., n dài ... byte]
+- Private key chứa version, n, e, d, p, q, dP, dQ, qInv. [Điền: mô tả các số thấy trong ảnh]
+
+### Kết quả mã hoá và giải mã
+![Mã hoá](images/bai2-ma-hoa.png)
+![Giải mã](images/bai2-giai-ma.png)
+
+Dữ liệu thử: khoá AES-256 ngẫu nhiên (32 byte). Kết quả giải mã [điền: giống / khác] dữ liệu gốc từng byte. Bản mã dài [điền] byte.
+
+### Tốc độ khoá công khai và khoá bí mật
+Cấu hình máy: Intel Core i5-12450HX, RAM khoảng 24 GB, SSD Micron, Windows, .NET 10, chế độ Release. Mỗi phép đo lặp [điền số] lần.
+
+| Độ dài n | Sinh khoá (ms) | Mã hoá, khoá công khai (ms/lần) | Giải mã, khoá bí mật (ms/lần) | Tỉ lệ giải/mã |
+|---|---|---|---|---|
+| 1024 bit | | | | |
+| 2048 bit | | | | |
+| 3072 bit | | | | |
+| 4096 bit | | | | |
+
+Nhận xét: [điền dựa trên bảng: phép nào nhanh hơn và gấp bao nhiêu lần; thời gian thay đổi thế nào khi tăng độ dài khoá]. Nguyên nhân: e = 65537 chỉ có 17 bit nên phép mũ modulo rất nhanh, còn d dài xấp xỉ n nên phép mũ chậm hơn nhiều.
+
+### SHA-256 và hiệu ứng thác lũ
+
+| Chuỗi 1 | Chuỗi 2 | Số bit hash khác nhau | Tỉ lệ |
+|---|---|---|---|
+| hello | hellp | [điền]/256 | [điền]% |
+| [thêm cặp khác] | | | |
+
+Khi lật lần lượt từng bit của đầu vào, số bit hash thay đổi trung bình là [điền]/256 ([điền]%). Chỉ cần đổi rất ít đầu vào, giá trị băm thay đổi hoàn toàn: đây là hiệu ứng thác lũ.
+
+### Chữ ký số và đề xuất chữ ký khác nhau mỗi lần ký
+
+![Kết quả chữ ký số](images/bai2-chu-ky.png)
+
+| Phương pháp | Ký 5 lần cùng dữ liệu, cùng private key | Verify |
+|---|---|---|
+| PKCS#1 v1.5 | [điền] chữ ký khác nhau / 5 | [điền] |
+| RSA-PSS | [điền] chữ ký khác nhau / 5 | [điền] |
+| PKCS#1 v1.5 + nonce + timestamp | [điền] chữ ký khác nhau / 5 | [điền] |
+
+**Đề xuất:**
+1. **RSA-PSS (khuyến nghị):** mỗi lần ký sinh một salt ngẫu nhiên đưa vào quá trình padding, nên chữ ký khác nhau nhưng người nhận vẫn xác minh được bằng cùng public key mà không cần nhận thêm dữ liệu. Đây là chuẩn (RFC 8017).
+2. **Thêm nonce và timestamp:** ký (dữ liệu ‖ nonce ‖ timestamp). Chữ ký khác nhau vì giá trị băm khác nhau (hiệu ứng thác lũ của SHA-256). Người nhận phải được gửi kèm nonce và timestamp để xác minh. Ưu điểm là chống tấn công phát lại; nhược điểm là phải truyền thêm dữ liệu.
+
+Khi sửa dữ liệu gốc dù chỉ một ký tự, chữ ký cũ không còn xác minh được (kết quả [điền]).
+
+### Kết luận
+- [Điền 3 đến 5 ý dựa trên số liệu của bạn: tốc độ public so với private, ảnh hưởng của độ dài khoá, hiệu ứng thác lũ, so sánh các phương pháp ký.]
