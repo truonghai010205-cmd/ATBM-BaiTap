@@ -47,7 +47,6 @@ Cấu hình máy: Intel Core i5-12450HX (thế hệ 12), RAM khoảng 24 GB, ổ
 - **Bộ nhớ:** Dùng luồng và khối 1 MB nên chương trình xử lý được file 4 GB mà không cần nạp cả file vào RAM.
 - **Kích thước đầu ra:** File mã hoá lớn hơn file nguồn đúng 32 byte (16 byte IV và 16 byte padding PKCS7), nên chi phí lưu trữ thêm là không đáng kể.
 
-### Ảnh chụp màn hình
 - MENU CHƯƠNG TRÌNH
 <img width="1245" height="695" alt="image" src="https://github.com/user-attachments/assets/4060ceaf-7e35-4191-865f-1ca5c7789ef5" />
 
