@@ -92,58 +92,96 @@ dotnet run -c Release
 ```
 
 ### Cấu trúc file PEM
-(Chèn ảnh chụp kết quả mục 2 và giải thích ngắn.)
 
-![Xem public.pem](images/bai2-pem-public.png)
-![Xem private.pem](images/bai2-pem-private.png)
+**Public key** (`public.pem`): 392 ký tự Base64, giải mã ra 294 byte DER.
+
+**Private key** (`private.pem`, định dạng PKCS#8): 1624 ký tự Base64, giải mã ra 1218 byte DER.
+
+<img width="1468" height="756" alt="image" src="https://github.com/user-attachments/assets/dbfbe6bb-4a16-446e-858a-0a8c86d6c324" />
+
 
 - Dòng `-----BEGIN ... -----` và `-----END ... -----` đánh dấu loại dữ liệu; phần giữa là Base64 của cấu trúc nhị phân DER (ASN.1).
-- Tag `30` là SEQUENCE, `02` là INTEGER, `03` là BIT STRING, `04` là OCTET STRING, `05` là NULL, `06` là OID. Byte ngay sau tag là độ dài; nếu có dạng `82` thì hai byte tiếp theo mới là độ dài thực.
-- Public key gồm định danh thuật toán `rsaEncryption` (OID 1.2.840.113549.1.1.1) và BIT STRING chứa n và e. [Điền: e = ..., n dài ... byte]
-- Private key chứa version, n, e, d, p, q, dP, dQ, qInv. [Điền: mô tả các số thấy trong ảnh]
+- Tag `30` là SEQUENCE, `02` là INTEGER, `03` là BIT STRING, `04` là OCTET STRING, `05` là NULL, `06` là OID. Byte ngay sau tag là độ dài; dạng `82` nghĩa là hai byte tiếp theo mới là độ dài thực (ví dụ `30 82 01 22` là SEQUENCE dài 290 byte).
+- Public key gồm định danh thuật toán `rsaEncryption` (OID 1.2.840.113549.1.1.1) và BIT STRING chứa hai số: n dài 257 byte (256 byte cộng thêm byte `00` đầu để số là số dương, vì bit cao nhất của n bằng 1) và e dài 3 byte `01 00 01` = 65537.
+- Private key chứa version, định danh thuật toán, rồi OCTET STRING bọc cấu trúc PKCS#1 gồm 9 số nguyên: version (1 byte), n (257 byte), e (3 byte), d (256 byte), p và q (129 byte mỗi số), dP và dQ (129 byte mỗi số), qInv (128 byte). Các số bắt đầu bằng bit 1 có thêm byte `00` đầu (n, p, q, dP, dQ), còn d và qInv thì không cần.
+
+### Import khoá và đọc các thành phần
+
+Chương trình đọc lại file PEM và hiển thị các thành phần của khoá.
+
+<img width="1920" height="1080" alt="Screenshot 2026-10-26 184826" src="https://github.com/user-attachments/assets/1ed0ca30-9f33-4a26-bdbe-3ef6381cdd94" />
+<img width="1920" height="1080" alt="Screenshot 2026-10-26 184826" src="https://github.com/user-attachments/assets/202336bf-2c49-4ecb-b275-9b202339ab28" />
+
+
+- Public key cho n (2048 bit, 256 byte) và e = 65537.
+- Private key cho thêm d, p, q, dP, dQ, qInv. Chương trình kiểm tra p × q == n cho kết quả **True**, chứng tỏ khoá đọc vào đúng và nhất quán.
 
 ### Kết quả mã hoá và giải mã
-![Mã hoá](images/bai2-ma-hoa.png)
-![Giải mã](images/bai2-giai-ma.png)
 
-Dữ liệu thử: khoá AES-256 ngẫu nhiên (32 byte). Kết quả giải mã [điền: giống / khác] dữ liệu gốc từng byte. Bản mã dài [điền] byte.
+<img width="1920" height="1080" alt="Screenshot 2026-10-26 185111" src="https://github.com/user-attachments/assets/179e9ae9-e2fd-4240-8936-2ff47fa4965b" />
+<img width="1920" height="1080" alt="Screenshot 2026-10-26 185129" src="https://github.com/user-attachments/assets/ab363f50-8d1a-426c-98aa-d0658b961877" />
+<img width="1920" height="1080" alt="Screenshot 2026-10-26 185209" src="https://github.com/user-attachments/assets/baa695f9-594e-4c3d-8f3f-8377838c2483" />
+
+
+Dữ liệu thử là khoá AES-256 ngẫu nhiên (32 byte), mã hoá bằng public key với OAEP-SHA256; bản mã dài 256 byte (bằng độ dài n). Giải mã bằng private key cho kết quả **giống nhau từng byte** với dữ liệu gốc.
 
 ### Tốc độ khoá công khai và khoá bí mật
-Cấu hình máy: Intel Core i5-12450HX, RAM khoảng 24 GB, SSD Micron, Windows, .NET 10, chế độ Release. Mỗi phép đo lặp [điền số] lần.
 
-| Độ dài n | Sinh khoá (ms) | Mã hoá, khoá công khai (ms/lần) | Giải mã, khoá bí mật (ms/lần) | Tỉ lệ giải/mã |
-|---|---|---|---|---|
-| 1024 bit | | | | |
-| 2048 bit | | | | |
-| 3072 bit | | | | |
-| 4096 bit | | | | |
+Cấu hình máy: Intel Core i5-12450HX, RAM khoảng 24 GB, SSD Micron, Windows, .NET 10, chế độ Release. Mỗi phép đo lặp 300 lần.
 
-Nhận xét: [điền dựa trên bảng: phép nào nhanh hơn và gấp bao nhiêu lần; thời gian thay đổi thế nào khi tăng độ dài khoá]. Nguyên nhân: e = 65537 chỉ có 17 bit nên phép mũ modulo rất nhanh, còn d dài xấp xỉ n nên phép mũ chậm hơn nhiều.
+<img width="1546" height="541" alt="Screenshot 2026-10-26 185523" src="https://github.com/user-attachments/assets/3f7f942b-5de1-4908-bd74-0f1e9760cbc7" />
+
+
+| Độ dài n | Mã hoá, khoá công khai (ms/lần) | Giải mã, khoá bí mật (ms/lần) | Tỉ lệ giải/mã |
+|---|---|---|---|
+| 1024 bit | 0,008 | 0,194 | 24,0 lần |
+| 2048 bit | 0,033 | 0,974 | 29,8 lần |
+| 3072 bit | 0,029 | 1,815 | 62,1 lần |
+| 4096 bit | 0,056 | 5,373 | 96,0 lần |
+
+Nhận xét:
+- Phép dùng khoá công khai nhanh hơn phép dùng khoá bí mật từ 24 đến 96 lần, và chênh lệch tăng theo độ dài khoá.
+- Thời gian khoá công khai gần như không đổi và rất nhỏ (dưới 0,06 ms); giá trị ở 3072 bit nhỏ hơn 2048 bit là do nhiễu đo vì thời gian quá ngắn.
+- Thời gian khoá bí mật tăng nhanh theo độ dài khoá: từ 2048 lên 4096 bit tăng khoảng 5,5 lần (0,974 ms lên 5,373 ms).
+- Nguyên nhân: e = 65537 chỉ có 17 bit nên phép mũ modulo cần rất ít phép nhân, còn d dài xấp xỉ n (khoảng 2048 bit) nên phép mũ nặng hơn nhiều, dù .NET đã dùng p, q, dP, dQ, qInv để tăng tốc giải mã.
 
 ### SHA-256 và hiệu ứng thác lũ
+<img width="1140" height="507" alt="Screenshot 2026-10-26 185605" src="https://github.com/user-attachments/assets/c8f09004-b5a4-44cc-87aa-ecb3fa6ff59f" />
+<img width="1261" height="518" alt="Screenshot 2026-10-26 185724" src="https://github.com/user-attachments/assets/65902c2e-6886-43ec-b312-8d7ed285e876" />
 
 | Chuỗi 1 | Chuỗi 2 | Số bit hash khác nhau | Tỉ lệ |
 |---|---|---|---|
-| hello | hellp | [điền]/256 | [điền]% |
-| [thêm cặp khác] | | | |
+| hello | hellp | 131/256 | 51,2% |
+| bai2antoanbaonhat | bai2baonhatantoan | 129/256 | 50,4% |
 
-Khi lật lần lượt từng bit của đầu vào, số bit hash thay đổi trung bình là [điền]/256 ([điền]%). Chỉ cần đổi rất ít đầu vào, giá trị băm thay đổi hoàn toàn: đây là hiệu ứng thác lũ.
+Khi lật lần lượt từng bit của đầu vào (mỗi lần chỉ đổi đúng 1 bit):
+
+| Chuỗi 1 | Số phép thử | Số bit hash thay đổi trung bình | Nhỏ nhất | Lớn nhất |
+|---|---|---|---|---|
+| hello | 40 | 126,4/256 (49,4%) | 109 | 145 |
+| bai2antoanbaonhat | 136 | 129,3/256 (50,5%) | 111 | 156 |
+
+Chỉ đổi 1 bit đầu vào, giá trị băm thay đổi khoảng một nửa số bit (xấp xỉ 128/256) và nhìn bằng mắt thường là hoàn toàn khác: đây là hiệu ứng thác lũ.
 
 ### Chữ ký số và đề xuất chữ ký khác nhau mỗi lần ký
 
-![Kết quả chữ ký số](images/bai2-chu-ky.png)
+<img width="1920" height="1080" alt="Screenshot 2026-10-26 185756" src="https://github.com/user-attachments/assets/f472957c-610d-44e2-961c-d9ea17353168" />
+
 
 | Phương pháp | Ký 5 lần cùng dữ liệu, cùng private key | Verify |
 |---|---|---|
-| PKCS#1 v1.5 | [điền] chữ ký khác nhau / 5 | [điền] |
-| RSA-PSS | [điền] chữ ký khác nhau / 5 | [điền] |
-| PKCS#1 v1.5 + nonce + timestamp | [điền] chữ ký khác nhau / 5 | [điền] |
+| PKCS#1 v1.5 | 1 chữ ký khác nhau / 5 | True cả 5 lần |
+| RSA-PSS | 5 chữ ký khác nhau / 5 | True cả 5 lần |
+| PKCS#1 v1.5 + nonce + timestamp | 5 chữ ký khác nhau / 5 | True cả 5 lần |
 
 **Đề xuất:**
 1. **RSA-PSS (khuyến nghị):** mỗi lần ký sinh một salt ngẫu nhiên đưa vào quá trình padding, nên chữ ký khác nhau nhưng người nhận vẫn xác minh được bằng cùng public key mà không cần nhận thêm dữ liệu. Đây là chuẩn (RFC 8017).
 2. **Thêm nonce và timestamp:** ký (dữ liệu ‖ nonce ‖ timestamp). Chữ ký khác nhau vì giá trị băm khác nhau (hiệu ứng thác lũ của SHA-256). Người nhận phải được gửi kèm nonce và timestamp để xác minh. Ưu điểm là chống tấn công phát lại; nhược điểm là phải truyền thêm dữ liệu.
 
-Khi sửa dữ liệu gốc dù chỉ một ký tự, chữ ký cũ không còn xác minh được (kết quả [điền]).
+Khi sửa dữ liệu gốc (thêm 1 ký tự) rồi xác minh chữ ký PSS cũ, kết quả là **False**, nên chữ ký bảo vệ được tính toàn vẹn của dữ liệu.
 
 ### Kết luận
-- [Điền 3 đến 5 ý dựa trên số liệu của bạn: tốc độ public so với private, ảnh hưởng của độ dài khoá, hiệu ứng thác lũ, so sánh các phương pháp ký.]
+- **Tính đúng đắn:** khoá AES-256 (32 byte) mã hoá bằng public key ra bản mã 256 byte, giải mã bằng private key trùng khớp từng byte với dữ liệu gốc; p × q == n là True.
+- **Tốc độ:** dùng khoá công khai (e nhỏ) nhanh hơn dùng khoá bí mật (d lớn) từ 24 đến 96 lần; giải mã tăng nhanh theo độ dài khoá (khoảng 5,5 lần khi đi từ 2048 lên 4096 bit). Vì vậy RSA thường chỉ dùng để mã hoá dữ liệu nhỏ như khoá AES.
+- **SHA-256:** thay đổi 1 bit đầu vào làm đổi trung bình khoảng 50% số bit của giá trị băm (từ 126,4 đến 129,3 trên 256 bit), đúng với hiệu ứng thác lũ.
+- **Chữ ký số:** PKCS#1 v1.5 là xác định (5 lần ký ra 1 chữ ký), còn RSA-PSS và phương pháp thêm nonce cho 5 chữ ký khác nhau mà vẫn xác minh đúng; sửa dữ liệu thì chữ ký cũ không còn hợp lệ.
